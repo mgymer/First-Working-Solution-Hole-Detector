@@ -6,6 +6,22 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D21EBD0A2E4F1FAB004086A3 /* Array+Safe.swift in Sources */ = {isa = PBXBuildFile; fileRef = D21EBD092E4F1FAB004086A3 /* Array+Safe.swift */; };
+		D2FA2DE32E3F4F4400BB1224 /* CameraService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DE12E3F4F4400BB1224 /* CameraService.swift */; };
+		D2FA2DE42E3F4F4400BB1224 /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DE02E3F4F4400BB1224 /* CameraPreview.swift */; };
+		D2FA2DE52E3F4F4400BB1224 /* PixelBuffer+Resize.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DE22E3F4F4400BB1224 /* PixelBuffer+Resize.swift */; };
+		D2FA2DEB2E3F4F5F00BB1224 /* ModelTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DE72E3F4F5F00BB1224 /* ModelTest.swift */; };
+		D2FA2DEC2E3F4F5F00BB1224 /* UIImageResize.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DE92E3F4F5F00BB1224 /* UIImageResize.swift */; };
+		D2FA2DED2E3F4F5F00BB1224 /* YOLOPredictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DEA2E3F4F5F00BB1224 /* YOLOPredictor.swift */; };
+		D2FA2DEE2E3F4F5F00BB1224 /* PredictionResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DE82E3F4F5F00BB1224 /* PredictionResult.swift */; };
+		D2FA2DEF2E3F4F5F00BB1224 /* DetectionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DE62E3F4F5F00BB1224 /* DetectionViewModel.swift */; };
+		D2FA2DF42E3F4F8000BB1224 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DF12E3F4F8000BB1224 /* ContentView.swift */; };
+		D2FA2DF52E3F4F8000BB1224 /* LaunchScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DF22E3F4F8000BB1224 /* LaunchScreenView.swift */; };
+		D2FA2DF62E3F4F8000BB1224 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DF32E3F4F8000BB1224 /* ViewController.swift */; };
+		D2FA2DF72E3F4F8000BB1224 /* BoundingBoxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DF02E3F4F8000BB1224 /* BoundingBoxView.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		D2FA2D332E3DEC0400BB1224 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,25 +40,28 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		D21EBD092E4F1FAB004086A3 /* Array+Safe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Array+Safe.swift"; sourceTree = "<group>"; };
 		D2FA2D252E3DEC0300BB1224 /* GolfAIApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GolfAIApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2FA2D322E3DEC0400BB1224 /* GolfAIAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GolfAIAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2FA2D3C2E3DEC0400BB1224 /* GolfAIAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GolfAIAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2FA2DE02E3F4F4400BB1224 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
+		D2FA2DE12E3F4F4400BB1224 /* CameraService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraService.swift; sourceTree = "<group>"; };
+		D2FA2DE22E3F4F4400BB1224 /* PixelBuffer+Resize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PixelBuffer+Resize.swift"; sourceTree = "<group>"; };
+		D2FA2DE62E3F4F5F00BB1224 /* DetectionViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionViewModel.swift; sourceTree = "<group>"; };
+		D2FA2DE72E3F4F5F00BB1224 /* ModelTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelTest.swift; sourceTree = "<group>"; };
+		D2FA2DE82E3F4F5F00BB1224 /* PredictionResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredictionResult.swift; sourceTree = "<group>"; };
+		D2FA2DE92E3F4F5F00BB1224 /* UIImageResize.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIImageResize.swift; sourceTree = "<group>"; };
+		D2FA2DEA2E3F4F5F00BB1224 /* YOLOPredictor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YOLOPredictor.swift; sourceTree = "<group>"; };
+		D2FA2DF02E3F4F8000BB1224 /* BoundingBoxView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundingBoxView.swift; sourceTree = "<group>"; };
+		D2FA2DF12E3F4F8000BB1224 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		D2FA2DF22E3F4F8000BB1224 /* LaunchScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchScreenView.swift; sourceTree = "<group>"; };
+		D2FA2DF32E3F4F8000BB1224 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		D2FA2D272E3DEC0300BB1224 /* GolfAIApp */ = {
+		D2FA2DF92E3F620100BB1224 /* SwiftTextDownload */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = GolfAIApp;
-			sourceTree = "<group>";
-		};
-		D2FA2D352E3DEC0400BB1224 /* GolfAIAppTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = GolfAIAppTests;
-			sourceTree = "<group>";
-		};
-		D2FA2D3F2E3DEC0400BB1224 /* GolfAIAppUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = GolfAIAppUITests;
+			path = SwiftTextDownload;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,10 +94,21 @@
 		D2FA2D1C2E3DEC0300BB1224 = {
 			isa = PBXGroup;
 			children = (
-				D2FA2D272E3DEC0300BB1224 /* GolfAIApp */,
-				D2FA2D352E3DEC0400BB1224 /* GolfAIAppTests */,
-				D2FA2D3F2E3DEC0400BB1224 /* GolfAIAppUITests */,
+				D21EBD092E4F1FAB004086A3 /* Array+Safe.swift */,
+				D2FA2DF02E3F4F8000BB1224 /* BoundingBoxView.swift */,
+				D2FA2DE02E3F4F4400BB1224 /* CameraPreview.swift */,
+				D2FA2DE12E3F4F4400BB1224 /* CameraService.swift */,
+				D2FA2DF12E3F4F8000BB1224 /* ContentView.swift */,
+				D2FA2DE62E3F4F5F00BB1224 /* DetectionViewModel.swift */,
+				D2FA2DF22E3F4F8000BB1224 /* LaunchScreenView.swift */,
+				D2FA2DE72E3F4F5F00BB1224 /* ModelTest.swift */,
+				D2FA2DE22E3F4F4400BB1224 /* PixelBuffer+Resize.swift */,
+				D2FA2DE82E3F4F5F00BB1224 /* PredictionResult.swift */,
 				D2FA2D262E3DEC0300BB1224 /* Products */,
+				D2FA2DF92E3F620100BB1224 /* SwiftTextDownload */,
+				D2FA2DE92E3F4F5F00BB1224 /* UIImageResize.swift */,
+				D2FA2DF32E3F4F8000BB1224 /* ViewController.swift */,
+				D2FA2DEA2E3F4F5F00BB1224 /* YOLOPredictor.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -108,7 +138,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				D2FA2D272E3DEC0300BB1224 /* GolfAIApp */,
+				D2FA2DF92E3F620100BB1224 /* SwiftTextDownload */,
 			);
 			name = GolfAIApp;
 			packageProductDependencies = (
@@ -130,9 +160,6 @@
 			dependencies = (
 				D2FA2D342E3DEC0400BB1224 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				D2FA2D352E3DEC0400BB1224 /* GolfAIAppTests */,
-			);
 			name = GolfAIAppTests;
 			packageProductDependencies = (
 			);
@@ -153,9 +180,6 @@
 			dependencies = (
 				D2FA2D3E2E3DEC0400BB1224 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				D2FA2D3F2E3DEC0400BB1224 /* GolfAIAppUITests */,
-			);
 			name = GolfAIAppUITests;
 			packageProductDependencies = (
 			);
@@ -175,6 +199,7 @@
 				TargetAttributes = {
 					D2FA2D242E3DEC0300BB1224 = {
 						CreatedOnToolsVersion = 26.0;
+						LastSwiftMigration = 2600;
 					};
 					D2FA2D312E3DEC0400BB1224 = {
 						CreatedOnToolsVersion = 26.0;
@@ -236,6 +261,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D2FA2DEB2E3F4F5F00BB1224 /* ModelTest.swift in Sources */,
+				D2FA2DEC2E3F4F5F00BB1224 /* UIImageResize.swift in Sources */,
+				D2FA2DF42E3F4F8000BB1224 /* ContentView.swift in Sources */,
+				D2FA2DF52E3F4F8000BB1224 /* LaunchScreenView.swift in Sources */,
+				D21EBD0A2E4F1FAB004086A3 /* Array+Safe.swift in Sources */,
+				D2FA2DF62E3F4F8000BB1224 /* ViewController.swift in Sources */,
+				D2FA2DF72E3F4F8000BB1224 /* BoundingBoxView.swift in Sources */,
+				D2FA2DED2E3F4F5F00BB1224 /* YOLOPredictor.swift in Sources */,
+				D2FA2DEE2E3F4F5F00BB1224 /* PredictionResult.swift in Sources */,
+				D2FA2DEF2E3F4F5F00BB1224 /* DetectionViewModel.swift in Sources */,
+				D2FA2DE32E3F4F4400BB1224 /* CameraService.swift in Sources */,
+				D2FA2DE42E3F4F4400BB1224 /* CameraPreview.swift in Sources */,
+				D2FA2DE52E3F4F4400BB1224 /* PixelBuffer+Resize.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -395,6 +433,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5SBHLR5WK8;
@@ -416,6 +455,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -427,6 +467,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 5SBHLR5WK8;
