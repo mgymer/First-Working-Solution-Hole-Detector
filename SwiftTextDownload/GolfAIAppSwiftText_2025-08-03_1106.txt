@@ -234,7 +234,7 @@ class DetectionViewModel: NSObject, ObservableObject {
     @Published var predictions: [Prediction] = []
     @Published var debugMessage: String = "Awaiting input..."
 
-    private let predictor = YOLOPredictor()!
+    private let predictor = YOLOPredictor.shared
 
     // MARK: - Update Predictions
     func update(with predictions: [Prediction]) {

@@ -1,6 +1,7 @@
 import SwiftUI
+
 struct BoundingBoxView: View {
-    let boxes: [CGRect]
+    let boxes: [CGRect]       // Normalized rects (0–1, Vision-style)
     let labels: [String]
     let color: Color
 
@@ -14,6 +15,8 @@ struct BoundingBoxView: View {
                 )
             }
         }
+        .allowsHitTesting(false)  // Bounding boxes don’t intercept taps
+        .drawingGroup()           // GPU compositing for smoother rendering
     }
 
     @ViewBuilder
@@ -27,7 +30,7 @@ struct BoundingBoxView: View {
                 )
                 .position(
                     x: box.midX * size.width,
-                    y: (1 - box.midY) * size.height
+                    y: (1 - box.midY) * size.height // Flip Y axis
                 )
 
             Text(label)
@@ -42,4 +45,8 @@ struct BoundingBoxView: View {
         }
     }
 }
+
+// MARK: - Safe Array Access Helper
+
+
 

@@ -1,6 +1,7 @@
 import Foundation
 import AVFoundation
 import Vision
+import Combine
 
 final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     private let session = AVCaptureSession()
@@ -29,7 +30,6 @@ final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputS
 
         if session.canAddInput(input) { session.addInput(input) }
 
-        // Configure output once
         videoOutput.alwaysDiscardsLateVideoFrames = true
         videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
         videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "videoQueue"))
@@ -40,14 +40,10 @@ final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         startSession()
     }
 
-    /// Start the camera session
     public func startSession() {
-        DispatchQueue.global(qos: .userInitiated).async {
-            self.session.startRunning()
-        }
+        DispatchQueue.global(qos: .userInitiated).async { self.session.startRunning() }
     }
 
-    /// Stop the camera session
     public func stop() {
         DispatchQueue.global(qos: .userInitiated).async {
             if self.session.isRunning { self.session.stopRunning() }
@@ -60,7 +56,7 @@ final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                        from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
-        // Throttle to ~2 fps for inference cost
+        // Throttle ~2 fps
         let now = Date()
         guard now.timeIntervalSince(lastPredictionTime) > 0.5 else { return }
         lastPredictionTime = now
@@ -71,4 +67,3 @@ final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         }
     }
 }
-

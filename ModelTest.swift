@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+
 
 struct ModelTest: View {
     @StateObject private var viewModel = DetectionViewModel()
@@ -16,6 +18,7 @@ struct ModelTest: View {
                             color: .red
                         )
                     )
+
 
                     .onAppear {
                         viewModel.predict(image: testImage)
