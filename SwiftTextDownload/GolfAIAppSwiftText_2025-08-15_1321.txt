@@ -1,0 +1,612 @@
+Array+Safe.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/Array+Safe.swift
+
+import Foundation
+
+extension Array {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
+
+
+
+BoundingBoxView.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/BoundingBoxView.swift
+
+import SwiftUI
+
+struct BoundingBoxView: View {
+    let boxes: [CGRect]       // Normalized rects (0–1, Vision-style)
+    let labels: [String]
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            ForEach(boxes.indices, id: \.self) { index in
+                drawBox(
+                    boxes[index],
+                    label: labels[safe: index] ?? "",
+                    in: geometry.size
+                )
+            }
+        }
+        .allowsHitTesting(false)  // Bounding boxes don’t intercept taps
+        .drawingGroup()           // GPU compositing for smoother rendering
+    }
+
+    @ViewBuilder
+    private func drawBox(_ box: CGRect, label: String, in size: CGSize) -> some View {
+        ZStack(alignment: .topLeading) {
+            Rectangle()
+                .stroke(color, lineWidth: 2)
+                .frame(
+                    width: box.width * size.width,
+                    height: box.height * size.height
+                )
+                .position(
+                    x: box.midX * size.width,
+                    y: (1 - box.midY) * size.height // Flip Y axis
+                )
+
+            Text(label)
+                .font(.caption)
+                .padding(2)
+                .background(Color.black.opacity(0.6))
+                .foregroundColor(color)
+                .position(
+                    x: box.midX * size.width,
+                    y: (1 - box.midY) * size.height - 10
+                )
+        }
+    }
+}
+
+// MARK: - Safe Array Access Helper
+
+
+
+
+
+
+CameraPreview.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/CameraPreview.swift
+
+import SwiftUI
+import AVFoundation
+
+struct CameraPreview: UIViewRepresentable {
+    let session: AVCaptureSession
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+
+        let previewLayer = AVCaptureVideoPreviewLayer(session: session)
+        previewLayer.videoGravity = .resizeAspectFill
+        previewLayer.connection?.videoOrientation = .portrait
+        previewLayer.frame = view.bounds
+
+        view.layer.addSublayer(previewLayer)
+
+        // Keep layer resized on layout changes
+        DispatchQueue.main.async {
+            previewLayer.frame = view.bounds
+        }
+
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        if let previewLayer = uiView.layer.sublayers?.first as? AVCaptureVideoPreviewLayer {
+            previewLayer.frame = uiView.bounds
+        }
+    }
+}
+
+
+
+CameraService.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/CameraService.swift
+
+import Foundation
+import AVFoundation
+import Vision
+import Combine
+
+final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+    private let session = AVCaptureSession()
+    private let videoOutput = AVCaptureVideoDataOutput()
+    private var input: AVCaptureDeviceInput!
+    private var lastPredictionTime = Date.distantPast
+    private weak var viewModel: DetectionViewModel?
+
+    public func getSession() -> AVCaptureSession { session }
+
+    func start(viewModel: DetectionViewModel) {
+        self.viewModel = viewModel
+
+        guard
+            let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+            let input = try? AVCaptureDeviceInput(device: device)
+        else {
+            print("❌ Could not create AVCaptureDeviceInput")
+            return
+        }
+
+        self.input = input
+
+        session.beginConfiguration()
+        session.sessionPreset = .high
+
+        if session.canAddInput(input) { session.addInput(input) }
+
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "videoQueue"))
+
+        if session.canAddOutput(videoOutput) { session.addOutput(videoOutput) }
+
+        session.commitConfiguration()
+        startSession()
+    }
+
+    public func startSession() {
+        DispatchQueue.global(qos: .userInitiated).async { self.session.startRunning() }
+    }
+
+    public func stop() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            if self.session.isRunning { self.session.stopRunning() }
+        }
+    }
+
+    // MARK: - Frame Capture
+    func captureOutput(_ output: AVCaptureOutput,
+                       didOutput sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        // Throttle ~2 fps
+        let now = Date()
+        guard now.timeIntervalSince(lastPredictionTime) > 0.5 else { return }
+        lastPredictionTime = now
+
+        let predictions = YOLOPredictor.shared.predict(pixelBuffer: pixelBuffer)
+        DispatchQueue.main.async { [weak self] in
+            self?.viewModel?.update(with: predictions)
+        }
+    }
+}
+
+
+
+ContentView.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/ContentView.swift
+
+import SwiftUI
+
+struct ContentView: View {
+    @StateObject var viewModel = DetectionViewModel()
+    @StateObject var cameraService = CameraService()
+
+    var body: some View {
+        ZStack {
+            // Live camera preview
+            CameraPreview(session: cameraService.getSession())
+                .ignoresSafeArea()
+
+            // Bounding boxes for predictions
+            BoundingBoxView(
+                boxes: viewModel.predictions.map { $0.boundingBox },
+                labels: viewModel.predictions.map { $0.label },
+                color: .green
+            )
+            .ignoresSafeArea()
+
+            // Debug overlay
+            VStack {
+                Spacer()
+                Text(viewModel.debugMessage)
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(8)
+                    .padding(.bottom, 20)
+            }
+        }
+        .onAppear {
+            cameraService.start(viewModel: viewModel)
+        }
+        .onDisappear {
+            cameraService.stop()
+        }
+    }
+}
+
+
+
+DetectionViewModel.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/DetectionViewModel.swift
+
+import Foundation
+import Combine
+import UIKit
+import CoreVideo
+
+// Only import these if you actually use them elsewhere in this file
+// import Vision
+// import CoreML
+// import AVFoundation
+
+final class DetectionViewModel: NSObject, ObservableObject {
+    @Published var predictions: [Prediction] = []
+    @Published var debugMessage: String = "Awaiting input..."
+
+    private let predictor: Predictor
+
+    // Dependency injection so we can use a FakePredictor in tests
+    init(predictor: Predictor = YOLOPredictor.shared) {
+        self.predictor = predictor
+        super.init()
+    }
+
+    // MARK: - Update Predictions
+    func update(with predictions: [Prediction]) {
+        self.predictions = predictions
+        self.debugMessage = predictions.isEmpty
+            ? "⚠️ No predictions"
+            : "✅ \(predictions.count) object(s) detected"
+    }
+
+    // MARK: - Manual Image Prediction (for test image)
+    func predict(image: UIImage) {
+        // Requires UIImageResize.swift in the target (for .resized and .toCVPixelBuffer)
+        guard let resizedImage = image.resized(to: CGSize(width: 416, height: 416)) else {
+            print("❌ Could not resize image")
+            return
+        }
+        guard let pixelBuffer = resizedImage.toCVPixelBuffer(size: CGSize(width: 416, height: 416)) else {
+            print("❌ Could not convert image to CVPixelBuffer")
+            return
+        }
+
+        let results = predictor.predict(pixelBuffer: pixelBuffer)
+        DispatchQueue.main.async { [weak self] in
+            self?.update(with: results)
+        }
+    }
+}
+
+
+
+
+GolfAIApp.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/GolfAIApp.swift
+
+import SwiftUI
+
+@main
+struct GolfAIApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
+}
+
+
+
+GolfAIAppTests:DetectionViewModelTests.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/GolfAIAppTests:DetectionViewModelTests.swift
+
+import XCTest
+@testable import GolfAIApp
+
+final class DetectionViewModelTests: XCTestCase {
+    func test_update_noPredictions_setsWarning() {
+        let vm = DetectionViewModel(predictor: FakePredictor(fakeResults: []))
+        vm.update(with: [])
+        XCTAssertEqual(vm.predictions.count, 0)
+        XCTAssertTrue(vm.debugMessage.contains("No predictions"))
+    }
+
+    func test_update_onePrediction_setsSuccess() {
+        let p = Prediction(label: "golf_ball", confidence: 0.91,
+                           boundingBox: .init(x: 0.45, y: 0.55, width: 0.10, height: 0.10))
+        let vm = DetectionViewModel(predictor: FakePredictor(fakeResults: [p]))
+        vm.update(with: [p])
+        XCTAssertEqual(vm.predictions.count, 1)
+        XCTAssertTrue(vm.debugMessage.contains("1 object"))
+    }
+}
+
+
+
+GolfAIAppTests:FakePredictor.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/GolfAIAppTests:FakePredictor.swift
+
+import CoreVideo
+@testable import GolfAIApp
+
+struct FakePredictor: Predictor {
+    let fakeResults: [Prediction]
+    func predict(pixelBuffer: CVPixelBuffer) -> [Prediction] { fakeResults }
+}
+
+
+
+LaunchScreenView.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/LaunchScreenView.swift
+
+import SwiftUI
+
+struct LaunchScreenView: View {
+    @State private var isActive = false
+
+    var body: some View {
+        Group {
+            if isActive {
+                ContentView()  // main app view
+            } else {
+                VStack(spacing: 20) {
+                    Image("test_golf") // from your xcassets
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 150, height: 150)
+
+                    Text("Golf Hole Detector")
+                        .font(.title)
+                        .bold()
+                        .foregroundColor(.green)
+
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.white)
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        withAnimation {
+                            isActive = true
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+ModelTest.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/ModelTest.swift
+
+import SwiftUI
+import UIKit
+
+
+struct ModelTest: View {
+    @StateObject private var viewModel = DetectionViewModel()
+
+    var body: some View {
+        VStack {
+            if let testImage = UIImage(named: "test_sample") {
+                Image(uiImage: testImage)
+                    .resizable()
+                    .scaledToFit()
+                    .overlay(
+                        BoundingBoxView(
+                            boxes: viewModel.predictions.map { $0.boundingBox },
+                            labels: viewModel.predictions.map { $0.label },
+                            color: .red
+                        )
+                    )
+
+
+                    .onAppear {
+                        viewModel.predict(image: testImage)
+                    }
+            } else {
+                Text("❌ Test image not found.")
+            }
+        }
+        .padding()
+    }
+}
+
+
+
+
+PixelBuffer+Resize.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/PixelBuffer+Resize.swift
+
+import CoreVideo
+import CoreImage
+import UIKit
+
+extension CVPixelBuffer {
+    func resized(to size: CGSize) -> CVPixelBuffer? {
+        let ciImage = CIImage(cvPixelBuffer: self)
+        let scaleX = size.width / CGFloat(CVPixelBufferGetWidth(self))
+        let scaleY = size.height / CGFloat(CVPixelBufferGetHeight(self))
+        let transform = CGAffineTransform(scaleX: scaleX, y: scaleY)
+        let resizedImage = ciImage.transformed(by: transform)
+
+        let context = CIContext()
+        var resizedBuffer: CVPixelBuffer?
+
+        let attrs: [CFString: Any] = [
+            kCVPixelBufferCGImageCompatibilityKey: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey: true
+        ]
+
+        CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            Int(size.width),
+            Int(size.height),
+            kCVPixelFormatType_32BGRA,
+            attrs as CFDictionary,
+            &resizedBuffer
+        )
+
+        guard let buffer = resizedBuffer else {
+            print("❌ Failed to create resized pixel buffer")
+            return nil
+        }
+
+        context.render(resizedImage, to: buffer)
+        return buffer
+    }
+}
+
+
+
+
+PredictionResult.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/PredictionResult.swift
+
+import Foundation
+import CoreGraphics
+
+struct Prediction {
+    let label: String
+    let confidence: Float
+    let boundingBox: CGRect
+}
+
+
+
+Predictor.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/Predictor.swift
+
+import CoreVideo
+
+protocol Predictor {
+    func predict(pixelBuffer: CVPixelBuffer) -> [Prediction]
+}
+
+
+
+UIImageResize.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/UIImageResize.swift
+
+import UIKit
+import CoreVideo
+
+extension UIImage {
+    
+    // Resize UIImage to target size
+    func resized(to targetSize: CGSize) -> UIImage? {
+        UIGraphicsBeginImageContextWithOptions(targetSize, false, 1.0)
+        self.draw(in: CGRect(origin: .zero, size: targetSize))
+        let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return resizedImage
+    }
+
+    // Convert UIImage to CVPixelBuffer for ML model
+    func toCVPixelBuffer(size: CGSize) -> CVPixelBuffer? {
+        var pixelBuffer: CVPixelBuffer?
+        let attrs: [CFString: Any] = [
+            kCVPixelBufferCGImageCompatibilityKey: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey: true
+        ]
+
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            Int(size.width),
+            Int(size.height),
+            kCVPixelFormatType_32ARGB,
+            attrs as CFDictionary,
+            &pixelBuffer
+        )
+
+        guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+            return nil
+        }
+
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+
+        guard let context = CGContext(
+            data: CVPixelBufferGetBaseAddress(buffer),
+            width: Int(size.width),
+            height: Int(size.height),
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+        ) else {
+            return nil
+        }
+
+        UIGraphicsPushContext(context)
+        self.draw(in: CGRect(origin: .zero, size: size))
+        UIGraphicsPopContext()
+
+        return buffer
+    }
+}
+
+
+
+ViewController.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/ViewController.swift
+
+import UIKit
+import AVFoundation
+
+class ViewController: UIViewController {
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+    private let cameraService = CameraService()
+    private let predictor = YOLOPredictor.shared
+    private let viewModel = DetectionViewModel()
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+
+        // Setup camera preview
+        cameraService.setPreviewInView(self.view)
+
+        // Handle frame-by-frame prediction
+        cameraService.setBufferHandler { [weak self] buffer in
+            guard let self = self else { return }
+            let predictions = predictor.predict(pixelBuffer: buffer)
+            DispatchQueue.main.async {
+                self.viewModel.predictions = predictions
+                self.viewModel.debugMessage = predictions.isEmpty ? "⚠️ No predictions" : "✅ \(predictions.count) golf hole(s) detected"
+            }
+        }
+
+        cameraService.startSession()
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        cameraService.stopSession()
+    }
+}
+
+
+
+
+YOLOPredictor.swift
+FILE: /Users/martingymer/Documents/GolfAIApp/YOLOPredictor.swift
+
+import Foundation
+import CoreVideo
+
+final class YOLOPredictor: Predictor {
+    static let shared = YOLOPredictor()
+    private init() {}
+
+    func predict(pixelBuffer: CVPixelBuffer) -> [Prediction] {
+        // STUB for now; returns none. Replace with real Vision/CoreML later.
+        return []
+    }
+}
+
+
+

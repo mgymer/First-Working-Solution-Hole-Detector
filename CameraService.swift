@@ -31,10 +31,29 @@ final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         if session.canAddInput(input) { session.addInput(input) }
 
         videoOutput.alwaysDiscardsLateVideoFrames = true
-        videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        videoOutput.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+        ]
         videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "videoQueue"))
 
         if session.canAddOutput(videoOutput) { session.addOutput(videoOutput) }
+
+        // Set orientation AFTER adding output
+        if let conn = videoOutput.connection(with: .video) {
+            if #available(iOS 17.0, *) {
+                // iOS 17+: rotation angle in degrees. 0 = portrait
+                if conn.isVideoRotationAngleSupported(0) {
+                    conn.videoRotationAngle = 0
+                }
+            } else {
+                // iOS 16 and earlier
+                if conn.isVideoOrientationSupported {
+                    conn.videoOrientation = .portrait
+                }
+            }
+        }
+
+
 
         session.commitConfiguration()
         startSession()
@@ -55,13 +74,22 @@ final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputS
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        let w = CVPixelBufferGetWidth(pixelBuffer)
+        let h = CVPixelBufferGetHeight(pixelBuffer)
+        print("📷 frame: \(w)x\(h)")
 
-        // Throttle ~2 fps
-        let now = Date()
-        guard now.timeIntervalSince(lastPredictionTime) > 0.5 else { return }
-        lastPredictionTime = now
+        guard let resizedBuffer = pixelBuffer.resized(to: CGSize(width: 640, height: 640)) else { return }
+        let rw = CVPixelBufferGetWidth(resizedBuffer)
+        let rh = CVPixelBufferGetHeight(resizedBuffer)
+        print("🪄 resized: \(rw)x\(rh)")
 
-        let predictions = YOLOPredictor.shared.predict(pixelBuffer: pixelBuffer)
+        let predictions = YOLOPredictor.shared.predict(pixelBuffer: resizedBuffer)
+        print("🧠 predictions: \(predictions.count)")
+
+
+        if !predictions.isEmpty {
+            print("Labels seen:", Set(predictions.map { $0.label }))
+        }
         DispatchQueue.main.async { [weak self] in
             self?.viewModel?.update(with: predictions)
         }

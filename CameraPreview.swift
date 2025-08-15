@@ -9,12 +9,17 @@ struct CameraPreview: UIViewRepresentable {
 
         let previewLayer = AVCaptureVideoPreviewLayer(session: session)
         previewLayer.videoGravity = .resizeAspectFill
-        previewLayer.connection?.videoOrientation = .portrait
-        previewLayer.frame = view.bounds
 
+        // ✅ Set the preview layer’s connection rotation (iOS 17+ API)
+        if let conn = previewLayer.connection,
+           conn.isVideoRotationAngleSupported(0) {
+            conn.videoRotationAngle = 0   // portrait
+        }
+
+        previewLayer.frame = view.bounds
         view.layer.addSublayer(previewLayer)
 
-        // Keep layer resized on layout changes
+        // keep layer sized to view
         DispatchQueue.main.async {
             previewLayer.frame = view.bounds
         }
