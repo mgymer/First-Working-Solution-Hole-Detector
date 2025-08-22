@@ -1,0 +1,11 @@
+======================================================================
+THIS FILE IS THE SINGLE SOURCE OF TRUTH FOR GolfAIApp SWIFT CODE.
+
+Only the content in THIS dump should be used going forward.
+Do NOT use older dumps, screenshots, or cached messages.
+When restoring, the restore_swift_from_dump.py script strips headings
+and writes ONLY the Swift bodies back into Xcode.
+
+Timestamp: Fri 22 Aug 2025 08:35:56 UTC  (UTC)
+======================================================================
+

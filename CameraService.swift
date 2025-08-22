@@ -100,7 +100,9 @@ final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         }
 
         // Run the model (Vision will handle resizing)
-        let predictions = YOLOPredictor.shared.predictTryingCrops(pixelBuffer: pixelBuffer,exifOrientation: exif)
+        let predictions = CombinedPredictor.shared.predictTryingCrops(pixelBuffer: pixelBuffer,
+                                                                     exifOrientation: exif)
+
 
         if !predictions.isEmpty {
             print("Labels seen:", Set(predictions.map { $0.label }))

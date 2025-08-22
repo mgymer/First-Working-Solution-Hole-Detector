@@ -17,6 +17,9 @@
 		D21EBD282E4F5F7B004086A3 /* GolfAIAppTests:FakePredictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D21EBD212E4F5C31004086A3 /* GolfAIAppTests:FakePredictor.swift */; };
 		D21EBD2E2E4F66CD004086A3 /* deviceSupportsLiDAR.swift in Sources */ = {isa = PBXBuildFile; fileRef = D21EBD2D2E4F66CD004086A3 /* deviceSupportsLiDAR.swift */; };
 		D21EBD312E4F6ED7004086A3 /* PixelBuffer+Resize.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DE22E3F4F4400BB1224 /* PixelBuffer+Resize.swift */; };
+		D2B42DE92E586046006C9D0C /* BallDetectorBEST.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = D2B42DE82E586046006C9D0C /* BallDetectorBEST.mlpackage */; };
+		D2B42E182E58662A006C9D0C /* BallModelPredictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B42E172E58662A006C9D0C /* BallModelPredictor.swift */; };
+		D2B42E1A2E586666006C9D0C /* CombinedPredictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B42E192E586666006C9D0C /* CombinedPredictor.swift */; };
 		D2B477E72E536FA4001E7223 /* ModelTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DE72E3F4F5F00BB1224 /* ModelTest.swift */; };
 		D2B477E92E537151001E7223 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D2B477E82E537151001E7223 /* Assets.xcassets */; };
 		D2B477ED2E537514001E7223 /* Predictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B477EC2E537514001E7223 /* Predictor.swift */; };
@@ -51,6 +54,9 @@
 		D21EBD212E4F5C31004086A3 /* GolfAIAppTests:FakePredictor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GolfAIAppTests:FakePredictor.swift"; sourceTree = "<group>"; };
 		D21EBD232E4F5C79004086A3 /* GolfAIAppTests:DetectionViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GolfAIAppTests:DetectionViewModelTests.swift"; sourceTree = "<group>"; };
 		D21EBD2D2E4F66CD004086A3 /* deviceSupportsLiDAR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = deviceSupportsLiDAR.swift; sourceTree = "<group>"; };
+		D2B42DE82E586046006C9D0C /* BallDetectorBEST.mlpackage */ = {isa = PBXFileReference; lastKnownFileType = folder.mlpackage; path = BallDetectorBEST.mlpackage; sourceTree = "<group>"; };
+		D2B42E172E58662A006C9D0C /* BallModelPredictor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BallModelPredictor.swift; sourceTree = "<group>"; };
+		D2B42E192E586666006C9D0C /* CombinedPredictor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombinedPredictor.swift; sourceTree = "<group>"; };
 		D2B477E82E537151001E7223 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D2B477EA2E5374DA001E7223 /* GolfAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfAIApp.swift; sourceTree = "<group>"; };
 		D2B477EC2E537514001E7223 /* Predictor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Predictor.swift; sourceTree = "<group>"; };
@@ -107,6 +113,9 @@
 		D2FA2D1C2E3DEC0300BB1224 = {
 			isa = PBXGroup;
 			children = (
+				D2B42E192E586666006C9D0C /* CombinedPredictor.swift */,
+				D2B42E172E58662A006C9D0C /* BallModelPredictor.swift */,
+				D2B42DE82E586046006C9D0C /* BallDetectorBEST.mlpackage */,
 				D2B477E82E537151001E7223 /* Assets.xcassets */,
 				D21EBD2D2E4F66CD004086A3 /* deviceSupportsLiDAR.swift */,
 				D21EBD092E4F1FAB004086A3 /* Array+Safe.swift */,
@@ -285,6 +294,7 @@
 				D21EBD0D2E4F2685004086A3 /* DetectionViewModel.swift in Sources */,
 				D21EBD0C2E4F264E004086A3 /* GolfAIApp.swift in Sources */,
 				D21EBD312E4F6ED7004086A3 /* PixelBuffer+Resize.swift in Sources */,
+				D2B42DE92E586046006C9D0C /* BallDetectorBEST.mlpackage in Sources */,
 				D21EBD0F2E4F26A1004086A3 /* BoundingBoxView.swift in Sources */,
 				D21EBD122E4F2CD5004086A3 /* UIImageResize.swift in Sources */,
 				D21EBD112E4F2AAB004086A3 /* Array+Safe.swift in Sources */,
@@ -292,12 +302,14 @@
 				D2B4782E2E548C72001E7223 /* GolfHoleDetector.mlpackage in Sources */,
 				D21EBD0E2E4F2699004086A3 /* CameraPreview.swift in Sources */,
 				D21EBD2E2E4F66CD004086A3 /* deviceSupportsLiDAR.swift in Sources */,
+				D2B42E182E58662A006C9D0C /* BallModelPredictor.swift in Sources */,
 				D2B477E72E536FA4001E7223 /* ModelTest.swift in Sources */,
 				D2FA2DED2E3F4F5F00BB1224 /* YOLOPredictor.swift in Sources */,
 				D2FA2DEE2E3F4F5F00BB1224 /* PredictionResult.swift in Sources */,
 				D2FA2DE32E3F4F4400BB1224 /* CameraService.swift in Sources */,
 				D2B477ED2E537514001E7223 /* Predictor.swift in Sources */,
 				D2B477EE2E5376A8001E7223 /* LaunchScreenView.swift in Sources */,
+				D2B42E1A2E586666006C9D0C /* CombinedPredictor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

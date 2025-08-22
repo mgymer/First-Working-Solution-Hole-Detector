@@ -1,11 +1,8 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject var viewModel = DetectionViewModel(predictor: YOLOPredictor.shared)
+    @StateObject var viewModel = DetectionViewModel(predictor: CombinedPredictor.shared)
     @StateObject var cameraService = CameraService()
-    // ...
-
-
 
     var body: some View {
         ZStack {
@@ -13,16 +10,31 @@ struct ContentView: View {
             CameraPreview(session: cameraService.getSession())
                 .ignoresSafeArea()
 
-            // Bounding boxes for predictions (with confidence)
+            // HOLES (blue)
             BoundingBoxView(
-                boxes:  viewModel.predictions.map { $0.boundingBox },
-                labels: viewModel.predictions.map {
-                    let pct = Int(($0.confidence as Float) * 100)
-                    return "\($0.label) \(pct)%"
-                },
+                boxes:  viewModel.predictions
+                    .filter { $0.label == "hole" }
+                    .map { $0.boundingBox },
+                labels: viewModel.predictions
+                    .filter { $0.label == "hole" }
+                    .map { "hole \(Int($0.confidence * 100))%" },
+                color: .blue
+            )
+            .ignoresSafeArea()
+            .zIndex(0)
+
+            // BALLS (green) on top
+            BoundingBoxView(
+                boxes:  viewModel.predictions
+                    .filter { $0.label == "ball" }
+                    .map { $0.boundingBox },
+                labels: viewModel.predictions
+                    .filter { $0.label == "ball" }
+                    .map { "ball \(Int($0.confidence * 100))%" },
                 color: .green
             )
             .ignoresSafeArea()
+            .zIndex(1)
 
             // Debug overlay text at bottom
             VStack {
@@ -36,7 +48,6 @@ struct ContentView: View {
                     .padding(.bottom, 20)
             }
         }
-        // 🔹 Test Box overlay button (top-left)
         .overlay(
             VStack {
                 HStack {
