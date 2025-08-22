@@ -1,0 +1,1309 @@
+======================================================================
+HARD CANONICAL SOURCE — GolfAIApp Swift
+USE THIS DUMP ONLY. IGNORE ALL EARLIER DUMPS, SCREENSHOTS, OR CHAT CODE.
+IF ANY SNIPPET CONFLICTS WITH THIS FILE, THIS FILE WINS.
+
+Repo: https://github.com/mgymer/First-Working-Solution-Hole-Detector.git
+Commit: a4907b5
+Timestamp: Fri 22 Aug 2025 13:59:10 UTC  (UTC)
+======================================================================
+
+
+Array+Safe.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/Array+Safe.swift
+
+extension Array {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
+
+
+BallModelPredictor.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/BallModelPredictor.swift
+
+import Foundation
+import Vision
+import CoreML
+import CoreVideo
+import ImageIO
+
+final class BallModelPredictor: Predictor {
+    static let shared = BallModelPredictor()
+
+    private let vnModel: VNCoreMLModel
+    private let confidenceThreshold: VNConfidence = 0.25
+
+    private init() {
+        do {
+            guard let url = Bundle.main.url(forResource: "BallDetectorBEST", withExtension: "mlmodelc") else {
+                fatalError("❌ BallDetectorBEST.mlmodelc not found in bundle. Check target membership + Copy Bundle Resources.")
+            }
+            let mlModel = try MLModel(contentsOf: url)
+            self.vnModel = try VNCoreMLModel(for: mlModel)
+        } catch {
+            fatalError("❌ Failed to load BallDetectorBEST model: \(error)")
+        }
+    }
+
+    func predict(pixelBuffer: CVPixelBuffer) -> [Prediction] {
+        predict(pixelBuffer: pixelBuffer, exifOrientation: .up)
+    }
+
+    func predict(pixelBuffer: CVPixelBuffer,
+                 exifOrientation: CGImagePropertyOrientation) -> [Prediction] {
+        predict(pixelBuffer: pixelBuffer, exifOrientation: exifOrientation, using: .scaleFit)
+    }
+
+    func predictTryingCrops(pixelBuffer: CVPixelBuffer,
+                            exifOrientation: CGImagePropertyOrientation) -> [Prediction] {
+        for crop in [VNImageCropAndScaleOption.scaleFit, .centerCrop, .scaleFill] {
+            let r = predict(pixelBuffer: pixelBuffer, exifOrientation: exifOrientation, using: crop)
+            if !r.isEmpty { return r }
+        }
+        return []
+    }
+
+    private func predict(pixelBuffer: CVPixelBuffer,
+                         exifOrientation: CGImagePropertyOrientation,
+                         using crop: VNImageCropAndScaleOption) -> [Prediction] {
+        var out: [Prediction] = []
+
+        let request = VNCoreMLRequest(model: vnModel) { [confidenceThreshold] req, err in
+            if let err = err { print("❌ Vision (ball) error:", err); return }
+            guard let obs = req.results as? [VNRecognizedObjectObservation] else { return }
+
+            for o in obs {
+                let conf = o.labels.first?.confidence ?? o.confidence
+                guard conf >= confidenceThreshold else { continue }
+                out.append(Prediction(label: "ball", confidence: conf, boundingBox: o.boundingBox))
+            }
+        }
+
+        request.imageCropAndScaleOption = crop
+
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
+                                            orientation: exifOrientation,
+                                            options: [:])
+        do { try handler.perform([request]) }
+        catch { print("❌ Vision perform (ball) error:", error) }
+
+        return out
+    }
+}
+
+
+
+BoundingBoxView.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/BoundingBoxView.swift
+
+import SwiftUI
+
+struct BoundingBoxView: View {
+    let boxes: [CGRect]       // Normalized rects (0–1, Vision-style)
+    let labels: [String]
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geometry in
+            ForEach(boxes.indices, id: \.self) { index in
+                drawBox(
+                    boxes[index],
+                    label: labels[safe: index] ?? "",
+                    in: geometry.size
+                )
+            }
+        }
+        .allowsHitTesting(false)  // Bounding boxes don’t intercept taps
+        .drawingGroup()           // GPU compositing for smoother rendering
+    }
+
+    @ViewBuilder
+    private func drawBox(_ box: CGRect, label: String, in size: CGSize) -> some View {
+        ZStack(alignment: .topLeading) {
+            Rectangle()
+                .stroke(color, lineWidth: 2)
+                .frame(
+                    width: box.width * size.width,
+                    height: box.height * size.height
+                )
+                .position(
+                    x: box.midX * size.width,
+                    y: (1 - box.midY) * size.height // Flip Y axis
+                )
+
+            Text(label)
+                .font(.caption)
+                .padding(2)
+                .background(Color.black.opacity(0.6))
+                .foregroundColor(color)
+                .position(
+                    x: box.midX * size.width,
+                    y: (1 - box.midY) * size.height - 10
+                )
+        }
+    }
+}
+
+// MARK: - Safe Array Access Helper
+
+
+
+
+
+
+CameraPreview.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/CameraPreview.swift
+
+import SwiftUI
+import AVFoundation
+
+struct CameraPreview: UIViewRepresentable {
+    let session: AVCaptureSession
+
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+
+        let previewLayer = AVCaptureVideoPreviewLayer(session: session)
+        previewLayer.videoGravity = .resizeAspectFill
+
+        // ✅ Set the preview layer’s connection rotation (iOS 17+ API)
+        if let conn = previewLayer.connection,
+           conn.isVideoRotationAngleSupported(0) {
+            conn.videoRotationAngle = 0   // portrait
+        }
+
+        previewLayer.frame = view.bounds
+        view.layer.addSublayer(previewLayer)
+
+        // keep layer sized to view
+        DispatchQueue.main.async {
+            previewLayer.frame = view.bounds
+        }
+
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        if let previewLayer = uiView.layer.sublayers?.first as? AVCaptureVideoPreviewLayer {
+            previewLayer.frame = uiView.bounds
+        }
+    }
+}
+
+
+
+CameraService.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/CameraService.swift
+
+import Foundation
+import AVFoundation
+import Vision
+import Combine
+import ImageIO
+
+final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+
+    let objectWillChange = ObservableObjectPublisher()
+    private let session = AVCaptureSession()
+    private let videoOutput = AVCaptureVideoDataOutput()
+    private var input: AVCaptureDeviceInput!
+    private var lastPredictionTime: Date = .distantPast
+    private let frameGap: TimeInterval = 0.20
+    private weak var viewModel: DetectionViewModel?
+
+    public func getSession() -> AVCaptureSession { session }
+
+    func start(viewModel: DetectionViewModel) {
+        self.viewModel = viewModel
+        guard
+          let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+          let input = try? AVCaptureDeviceInput(device: device)
+        else { print("❌ Could not create AVCaptureDeviceInput"); return }
+
+        self.input = input
+        session.beginConfiguration()
+        session.sessionPreset = .high
+        if session.canAddInput(input) { session.addInput(input) }
+
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.videoSettings = [ kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA ]
+        videoOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "videoQueue"))
+        if session.canAddOutput(videoOutput) { session.addOutput(videoOutput) }
+
+        if let conn = videoOutput.connection(with: .video) {
+            if #available(iOS 17.0, *) {
+                if conn.isVideoRotationAngleSupported(0) { conn.videoRotationAngle = 0 }
+            } else {
+                if conn.isVideoOrientationSupported { conn.videoOrientation = .portrait }
+            }
+        }
+
+        session.commitConfiguration()
+        startSession()
+    }
+
+    public func startSession() {
+        DispatchQueue.global(qos: .userInitiated).async { self.session.startRunning() }
+    }
+
+    public func stop() {
+        DispatchQueue.global(qos: .userInitiated).async {
+            if self.session.isRunning { self.session.stopRunning() }
+        }
+        Stabilizer.shared.reset()
+    }
+
+    func captureOutput(_ output: AVCaptureOutput,
+                       didOutput sampleBuffer: CMSampleBuffer,
+                       from connection: AVCaptureConnection) {
+
+        let now = Date()
+        guard now.timeIntervalSince(lastPredictionTime) >= frameGap else { return }
+        lastPredictionTime = now
+
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        let exif: CGImagePropertyOrientation
+        if #available(iOS 17.0, *) {
+            exif = exifFromRotationAngle(connection.videoRotationAngle, cameraPosition: .back)
+        } else {
+            exif = exifFromVideoOrientation(connection.videoOrientation, cameraPosition: .back)
+        }
+
+        let raw = CombinedPredictor.shared.predictTryingCrops(pixelBuffer: pixelBuffer, exifOrientation: exif)
+        let refined = Heuristics.refine(predictions: raw)
+        let stable = Stabilizer.shared.update(with: refined)
+
+        if !raw.isEmpty {
+            let cRaw = Dictionary(grouping: raw, by: { $0.label }).mapValues { $0.count }
+            let cRef = Dictionary(grouping: refined, by: { $0.label }).mapValues { $0.count }
+            let cSta = Dictionary(grouping: stable, by: { $0.label }).mapValues { $0.count }
+            print("Counts raw:", cRaw, "refined:", cRef, "stable:", cSta)
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.viewModel?.update(with: stable)
+        }
+    }
+}
+
+@available(iOS 17.0, *)
+private func exifFromRotationAngle(_ angle: CGFloat,
+                                   cameraPosition: AVCaptureDevice.Position) -> CGImagePropertyOrientation {
+    switch Int(angle) % 360 {
+    case 0: return .right
+    case 90: return (cameraPosition == .front) ? .down : .up
+    case 180: return .left
+    case 270: return (cameraPosition == .front) ? .up : .down
+    default: return .right
+    }
+}
+
+@available(iOS, introduced: 13.0, deprecated: 17.0)
+private func exifFromVideoOrientation(_ vo: AVCaptureVideoOrientation,
+                                      cameraPosition: AVCaptureDevice.Position) -> CGImagePropertyOrientation {
+    switch vo {
+    case .portrait: return .right
+    case .portraitUpsideDown: return .left
+    case .landscapeRight: return cameraPosition == .front ? .down : .up
+    case .landscapeLeft: return cameraPosition == .front ? .up : .down
+    @unknown default: return .right
+    }
+}
+
+
+
+CombinedPredictor.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/CombinedPredictor.swift
+
+import CoreVideo
+import ImageIO
+
+/// Calls both predictors and returns a concatenated list.
+final class CombinedPredictor: Predictor {
+    static let shared = CombinedPredictor()
+    private init() {}
+
+    func predict(pixelBuffer: CVPixelBuffer) -> [Prediction] {
+        predict(pixelBuffer: pixelBuffer, exifOrientation: .up)
+    }
+
+    func predict(pixelBuffer: CVPixelBuffer,
+                 exifOrientation: CGImagePropertyOrientation) -> [Prediction] {
+        let holes = YOLOPredictor.shared.predict(pixelBuffer: pixelBuffer,
+                                                 exifOrientation: exifOrientation)
+        let balls = BallModelPredictor.shared.predict(pixelBuffer: pixelBuffer,
+                                                      exifOrientation: exifOrientation)
+        return holes + balls
+    }
+
+    func predictTryingCrops(pixelBuffer: CVPixelBuffer,
+                            exifOrientation: CGImagePropertyOrientation) -> [Prediction] {
+        let holes = YOLOPredictor.shared.predictTryingCrops(pixelBuffer: pixelBuffer,
+                                                            exifOrientation: exifOrientation)
+        let balls = BallModelPredictor.shared.predictTryingCrops(pixelBuffer: pixelBuffer,
+                                                                 exifOrientation: exifOrientation)
+        return holes + balls
+    }
+}
+
+
+
+ContentView.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/ContentView.swift
+
+import Combine
+
+import SwiftUI
+private let LIDAR_ENABLED = true
+
+
+struct ContentView: View {
+    @StateObject var viewModel = DetectionViewModel(predictor: CombinedPredictor.shared)
+    @StateObject var cameraService = CameraService()
+    @StateObject var lidar = LiDARService.shared
+
+
+    @State private var holeScreen: CGPoint?
+    @State private var ballScreen: CGPoint?
+    @State private var downhillVecFromBall: CGVector?
+
+    var body: some View {
+        ZStack {
+            CameraPreview(session: cameraService.getSession())
+                .ignoresSafeArea()
+                .onAppear { if LIDAR_ENABLED { lidar.start() } }   // <-- gate LiDAR
+
+
+            BoundingBoxView(
+                boxes:  viewModel.predictions.filter { $0.label == "hole" }.map { $0.boundingBox },
+                labels: viewModel.predictions.filter { $0.label == "hole" }.map { "hole \(Int($0.confidence * 100))%" },
+                color: .blue
+            )
+            .ignoresSafeArea()
+            .zIndex(0)
+
+            BoundingBoxView(
+                boxes:  viewModel.predictions.filter { $0.label == "ball" }.map { $0.boundingBox },
+                labels: viewModel.predictions.filter { $0.label == "ball" }.map { "ball \(Int($0.confidence * 100))%" },
+                color: .green
+            )
+            .ignoresSafeArea()
+            .zIndex(1)
+
+            if let b = ballScreen, let h = holeScreen {
+                PathOverlay(ball: b, hole: h, downhillFromBall: downhillVecFromBall)
+                    .zIndex(2)
+            }
+
+            VStack {
+                Spacer()
+                Text(viewModel.debugMessage)
+                    .font(.caption)
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .background(Color.black.opacity(0.6))
+                    .cornerRadius(8)
+                    .padding(.bottom, 20)
+            }
+        }
+        .overlay(
+            VStack {
+                HStack {
+                    Button("▶️ Test Box") {
+                        let fake = Prediction(label: "test", confidence: 0.9,
+                                              boundingBox: CGRect(x: 0.45, y: 0.45, width: 0.10, height: 0.10))
+                        viewModel.update(with: [fake])
+                    }
+                    .padding(8)
+                    .background(Color.black.opacity(0.6))
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                    Spacer()
+                }
+                Spacer()
+            }
+            .padding(),
+            alignment: .topLeading
+        )
+        .onAppear { cameraService.start(viewModel: viewModel) }
+        .onDisappear {
+            cameraService.stop()
+            if LIDAR_ENABLED { lidar.stop() }
+        }
+        .onReceive(viewModel.$predictions) { _ in
+            updatePathInputs()
+        }
+
+
+    }
+
+    private func updatePathInputs() {
+        let size = UIScreen.main.bounds.size
+
+        func screenPoint(from box: CGRect) -> CGPoint {
+            CGPoint(x: box.midX * size.width, y: (1 - box.midY) * size.height)
+        }
+
+        let bestHole = viewModel.predictions
+            .filter { $0.label == "hole" }
+            .max(by: { $0.confidence < $1.confidence })
+
+        let bestBall = viewModel.predictions
+            .filter { $0.label == "ball" }
+            .max(by: { $0.confidence < $1.confidence })
+
+        holeScreen = bestHole.map { screenPoint(from: $0.boundingBox) }
+        ballScreen = bestBall.map { screenPoint(from: $0.boundingBox) }
+
+        if let ball = bestBall {
+            let roi = smallROI(around: ball.boundingBox, fallbackSize: 0.10)
+            if let proj = LiDARService.shared.projectedDownhill(at: roi, previewSize: size) {
+                downhillVecFromBall = proj.dir
+            } else {
+                downhillVecFromBall = nil
+            }
+        } else {
+            downhillVecFromBall = nil
+        }
+    }
+
+    private func smallROI(around box: CGRect, fallbackSize: CGFloat) -> CGRect {
+        let cx = box.midX, cy = box.midY
+        let w = max(fallbackSize, box.width * 1.2)
+        let h = max(fallbackSize, box.height * 1.2)
+        let x = min(max(0, cx - w/2), 1 - w)
+        let y = min(max(0, cy - h/2), 1 - h)
+        return CGRect(x: x, y: y, width: min(w, 1), height: min(h, 1))
+    }
+}
+
+
+
+DetectionViewModel.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/DetectionViewModel.swift
+
+import Combine
+import UIKit
+
+@MainActor
+final class DetectionViewModel: NSObject, ObservableObject {
+    @Published var predictions: [Prediction] = []
+    @Published var debugMessage: String = "Awaiting input..."
+
+    private let predictor: Predictor
+    private var lastNonEmpty = Date.distantPast
+    var holdSeconds: TimeInterval = 0.7
+
+    // No default here anymore
+    init(predictor: Predictor) {
+        self.predictor = predictor
+        super.init()
+    }
+
+    func update(with new: [Prediction]) {
+        if new.isEmpty {
+            if Date().timeIntervalSince(lastNonEmpty) < holdSeconds { return }
+            predictions = []
+            debugMessage = "⚠️ No predictions"
+        } else {
+            lastNonEmpty = Date()
+            predictions = new
+            debugMessage = "✅ \(new.count) object(s) detected"
+        }
+    }
+}
+
+
+
+GolfAIApp.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/GolfAIApp.swift
+
+
+import SwiftUI
+
+@main
+struct GolfAIApp: App {
+    var body: some Scene {
+        WindowGroup {
+            ContentView()  // ← this runs live camera detection
+        }
+    }
+}
+
+
+
+GolfAIAppTests:DetectionViewModelTests.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/GolfAIAppTests:DetectionViewModelTests.swift
+
+import XCTest
+@testable import GolfAIApp
+
+@MainActor
+final class DetectionViewModelTests: XCTestCase {
+
+    func test_update_noPredictions_setsWarning() {
+        let vm = DetectionViewModel(predictor: FakePredictor(fakeResults: []))
+        vm.update(with: [])
+        XCTAssertEqual(vm.predictions.count, 0)
+        XCTAssertTrue(vm.debugMessage.contains("No predictions"))
+    }
+
+    func test_update_onePrediction_setsSuccess() {
+        let p = Prediction(label: "golf_ball", confidence: 0.91,
+                           boundingBox: .init(x: 0.45, y: 0.55, width: 0.10, height: 0.10))
+        let vm = DetectionViewModel(predictor: FakePredictor(fakeResults: [p]))
+        vm.update(with: [p])
+        XCTAssertEqual(vm.predictions.count, 1)
+        XCTAssertTrue(vm.debugMessage.contains("1 object"))
+    }
+}
+
+
+
+GolfAIAppTests:FakePredictor.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/GolfAIAppTests:FakePredictor.swift
+
+import CoreVideo
+@testable import GolfAIApp
+
+struct FakePredictor: Predictor {
+    let fakeResults: [Prediction]
+    func predict(pixelBuffer: CVPixelBuffer) -> [Prediction] { fakeResults }
+}
+
+
+
+Heuristics.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/Heuristics.swift
+
+import CoreGraphics
+
+enum Heuristics {
+    static let minBallArea: CGFloat = 0.00002
+    static let maxBallArea: CGFloat = 0.006
+    static let minHoleArea: CGFloat = 0.0004
+    static let maxHoleArea: CGFloat = 0.08
+    static let minHoleCenterY: CGFloat = 0.20
+    static let ballAspectRange: ClosedRange<CGFloat> = 0.75...1.33
+    static let holeAspectRange: ClosedRange<CGFloat> = 0.65...1.40
+    static let nmsIoU: CGFloat = 0.45
+    static let crossIoU: CGFloat = 0.35
+    static let ballVsHoleAreaRatio: CGFloat = 0.55
+
+    static func iou(_ a: CGRect, _ b: CGRect) -> CGFloat {
+        let ia = a.intersection(b)
+        if ia.isNull || ia.isEmpty { return 0 }
+        let inter = ia.width * ia.height
+        let union = a.width * a.height + b.width * b.height - inter
+        return union > 0 ? inter / union : 0
+    }
+
+    private static func nms(_ preds: [Prediction], iouThresh: CGFloat) -> [Prediction] {
+        var sorted = preds.sorted { $0.confidence > $1.confidence }
+        var keep: [Prediction] = []
+        while !sorted.isEmpty {
+            let p = sorted.removeFirst()
+            keep.append(p)
+            sorted.removeAll { q in
+                q.label == p.label && iou(p.boundingBox, q.boundingBox) >= iouThresh
+            }
+        }
+        return keep
+    }
+
+    private static func area(_ r: CGRect) -> CGFloat { r.width * r.height }
+    private static func aspect(_ r: CGRect) -> CGFloat { max(r.width, 1e-6) / max(r.height, 1e-6) }
+
+    static func refine(predictions: [Prediction]) -> [Prediction] {
+        let typed = predictions.filter { p in
+            let a = area(p.boundingBox)
+            let ar = aspect(p.boundingBox)
+            let cy = p.boundingBox.midY
+            switch p.label {
+            case "ball":
+                return a >= minBallArea && a <= maxBallArea && ballAspectRange.contains(ar)
+            case "hole":
+                return a >= minHoleArea && a <= maxHoleArea && holeAspectRange.contains(ar) && cy >= minHoleCenterY
+            default:
+                return false
+            }
+        }
+
+        let ballsNMS = nms(typed.filter { $0.label == "ball" }, iouThresh: nmsIoU)
+        let holesNMS = nms(typed.filter { $0.label == "hole" }, iouThresh: nmsIoU)
+
+        var keepBall = Array(repeating: true, count: ballsNMS.count)
+        var keepHole = Array(repeating: true, count: holesNMS.count)
+
+        for i in ballsNMS.indices where keepBall[i] {
+            for j in holesNMS.indices where keepHole[j] {
+                if iou(ballsNMS[i].boundingBox, holesNMS[j].boundingBox) >= crossIoU {
+                    let ai = area(ballsNMS[i].boundingBox)
+                    let aj = area(holesNMS[j].boundingBox)
+                    if ai / max(aj, 1e-6) <= ballVsHoleAreaRatio {
+                        keepHole[j] = false
+                    } else {
+                        keepBall[i] = false
+                    }
+                }
+            }
+        }
+
+        let balls = ballsNMS.enumerated().compactMap { keepBall[$0] ? $1 : nil }
+        let holes = holesNMS.enumerated().compactMap { keepHole[$0] ? $1 : nil }
+        return balls + holes
+    }
+}
+
+
+
+LaunchScreenView.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/LaunchScreenView.swift
+
+import SwiftUI
+
+struct LaunchScreenView: View {
+    @State private var isActive = false
+
+    var body: some View {
+        Group {
+            if isActive {
+                ContentView()  // main app view
+            } else {
+                VStack(spacing: 20) {
+                    Image("test_golf") // from your xcassets
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 150, height: 150)
+
+                    Text("Golf Hole Detector")
+                        .font(.title)
+                        .bold()
+                        .foregroundColor(.green)
+
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.white)
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        withAnimation {
+                            isActive = true
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+LiDARService.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/LiDARService.swift
+
+import ARKit
+import simd
+import CoreGraphics
+import Combine
+
+
+
+struct SlopeResult {
+    let angleDegrees: Float
+    let downhillWorld: simd_float3
+}
+
+final class LiDARService: NSObject, ARSessionDelegate, ObservableObject {
+    static let shared = LiDARService()
+
+    let session = ARSession()
+    @Published private(set) var latestFrame: ARFrame?
+
+    private override init() { super.init() }
+
+    func start() {
+        guard ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) else { return }
+        let cfg = ARWorldTrackingConfiguration()
+        cfg.planeDetection = [.horizontal]
+        cfg.sceneReconstruction = .mesh
+        if ARWorldTrackingConfiguration.supportsFrameSemantics(.smoothedSceneDepth) {
+            cfg.frameSemantics.insert(.smoothedSceneDepth)
+        } else if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
+            cfg.frameSemantics.insert(.sceneDepth)
+        }
+        session.delegate = self
+        session.run(cfg, options: [.resetTracking, .removeExistingAnchors])
+    }
+
+    func stop() {
+        session.pause()
+        latestFrame = nil
+    }
+
+    func session(_ session: ARSession, didUpdate frame: ARFrame) {
+        DispatchQueue.main.async {
+            self.latestFrame = frame
+        }
+    }
+
+
+    // MARK: Depth helpers
+
+    func estimateSlope(roi: CGRect, previewSize: CGSize) -> SlopeResult? {
+        guard let frame = latestFrame else { return nil }
+        guard let sceneDepth = frame.sceneDepth ?? frame.smoothedSceneDepth else { return nil }
+
+        let depth = sceneDepth.depthMap
+        CVPixelBufferLockBaseAddress(depth, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(depth, .readOnly) }
+
+        let dw = CVPixelBufferGetWidth(depth)
+        let dh = CVPixelBufferGetHeight(depth)
+        guard let base = CVPixelBufferGetBaseAddress(depth) else { return nil }
+        let ptr = base.assumingMemoryBound(to: Float32.self)
+
+        let t = frame.displayTransform(for: .portrait, viewportSize: previewSize)
+
+        func mapPoint(_ p: CGPoint) -> CGPoint {
+            let ndc = CGPoint(x: p.x, y: 1 - p.y)
+            let ui = ndc.applying(t)
+            return CGPoint(x: ui.x * CGFloat(dw), y: ui.y * CGFloat(dh))
+        }
+
+        let pMin = mapPoint(CGPoint(x: roi.minX, y: roi.minY))
+        let pMax = mapPoint(CGPoint(x: roi.maxX, y: roi.maxY))
+        let rx0 = max(0, Int(min(pMin.x, pMax.x)))
+        let ry0 = max(0, Int(min(pMin.y, pMax.y)))
+        let rx1 = min(dw - 1, Int(max(pMin.x, pMax.x)))
+        let ry1 = min(dh - 1, Int(max(pMin.y, pMax.y)))
+        if rx1 - rx0 < 4 || ry1 - ry0 < 4 { return nil }
+
+        var xs:[Float]=[], zs:[Float]=[], ys:[Float]=[]
+
+        let intr = frame.camera.intrinsics
+        let camToWorld = frame.camera.transform
+
+        func backproject(u:Int, v:Int, z:Float) -> simd_float3 {
+            let fx = intr.columns.0.x, fy = intr.columns.1.y
+            let cx = intr.columns.2.x, cy = intr.columns.2.y
+            let Xc = (Float(u) - cx) * z / fx
+            let Yc = (Float(v) - cy) * z / fy
+            let camP = simd_float4(Xc, Yc, z, 1)
+            let worldP = camToWorld * camP
+            return simd_float3(worldP.x, worldP.y, worldP.z)
+        }
+
+        let stepX = max(1, (rx1 - rx0) / 24)
+        let stepY = max(1, (ry1 - ry0) / 24)
+        for v in stride(from: ry0, through: ry1, by: stepY) {
+            for u in stride(from: rx0, through: rx1, by: stepX) {
+                let z = ptr[v * dw + u]
+                if !z.isFinite || z <= 0.05 || z > 20 { continue }
+                let p = backproject(u: u, v: v, z: z)
+                xs.append(p.x); zs.append(p.z); ys.append(p.y)
+            }
+        }
+        guard xs.count >= 20 else { return nil }
+
+        var Sx:Float=0, Sz:Float=0, Sy:Float=0, Sxx:Float=0, Szz:Float=0, Sxz:Float=0, Sxy:Float=0, Syz:Float=0
+        for i in 0..<xs.count {
+            let x=xs[i], z=zs[i], y=ys[i]
+            Sx += x; Sz += z; Sy += y
+            Sxx += x*x; Szz += z*z; Sxz += x*z
+            Sxy += x*y; Syz += z*y
+        }
+        let n = Float(xs.count)
+        let A = simd_float3x3(
+            .init(Sxx, Sxz, Sx),
+            .init(Sxz, Szz, Sz),
+            .init(Sx,  Sz,  n )
+        )
+        let B = simd_float3(Sxy, Syz, Sy)
+        let det = A.determinant
+        if abs(det) < 1e-6 { return nil }
+        let X = simd_inverse(A) * B
+        let a = X.x, b = X.y
+
+        let uphill = simd_normalize(simd_float3(a, 0, b))
+        let downhill = -uphill
+        let slopeAngle = atan(sqrt(a*a + b*b)) * 180 / .pi
+        return SlopeResult(angleDegrees: slopeAngle, downhillWorld: downhill)
+    }
+
+    func worldPointAtCenter(of roi: CGRect, previewSize: CGSize) -> simd_float3? {
+        guard let frame = latestFrame else { return nil }
+        guard let sceneDepth = frame.sceneDepth ?? frame.smoothedSceneDepth else { return nil }
+
+        let depth = sceneDepth.depthMap
+        CVPixelBufferLockBaseAddress(depth, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(depth, .readOnly) }
+
+        let dw = CVPixelBufferGetWidth(depth)
+        let dh = CVPixelBufferGetHeight(depth)
+        guard let base = CVPixelBufferGetBaseAddress(depth) else { return nil }
+        let ptr = base.assumingMemoryBound(to: Float32.self)
+
+        let t = frame.displayTransform(for: .portrait, viewportSize: previewSize)
+        let ndc = CGPoint(x: roi.midX, y: 1 - roi.midY).applying(t)
+        let u = Int(clamping: Int(ndc.x * CGFloat(dw)))
+        let v = Int(clamping: Int(ndc.y * CGFloat(dh)))
+
+        let z = ptr[v * dw + u]
+        if !z.isFinite || z <= 0.05 || z > 20 { return nil }
+
+        let intr = frame.camera.intrinsics
+        let camToWorld = frame.camera.transform
+        let fx = intr.columns.0.x, fy = intr.columns.1.y
+        let cx = intr.columns.2.x, cy = intr.columns.2.y
+        let Xc = (Float(u) - cx) * z / fx
+        let Yc = (Float(v) - cy) * z / fy
+        let camP = simd_float4(Xc, Yc, z, 1)
+        let worldP = camToWorld * camP
+        return simd_float3(worldP.x, worldP.y, worldP.z)
+    }
+
+    func projectToScreen(_ world: simd_float3, previewSize: CGSize) -> CGPoint? {
+        guard let frame = latestFrame else { return nil }
+        let p = simd_float3(world.x, world.y, world.z)
+        let sp = frame.camera.projectPoint(p, orientation: .portrait, viewportSize: previewSize)
+        return sp
+    }
+
+    func projectedDownhill(at roi: CGRect, previewSize: CGSize, stepMeters: Float = 0.5)
+    -> (anchor: CGPoint, dir: CGVector, angleDeg: Float)? {
+        guard let slope = estimateSlope(roi: roi, previewSize: previewSize) else { return nil }
+        guard let p0w = worldPointAtCenter(of: roi, previewSize: previewSize) else { return nil }
+        let p1w = p0w + slope.downhillWorld * stepMeters
+        guard let p0s = projectToScreen(p0w, previewSize: previewSize),
+              let p1s = projectToScreen(p1w, previewSize: previewSize) else { return nil }
+        let v = CGVector(dx: p1s.x - p0s.x, dy: p1s.y - p0s.y)
+        let len = max(1.0, sqrt(v.dx*v.dx + v.dy*v.dy))
+        return (anchor: p0s, dir: CGVector(dx: v.dx/len, dy: v.dy/len), angleDeg: slope.angleDegrees)
+    }
+}
+
+private extension simd_float3x3 {
+    var determinant: Float {
+        let m = self
+        return m.columns.0.x*(m.columns.1.y*m.columns.2.z - m.columns.1.z*m.columns.2.y)
+             - m.columns.1.x*(m.columns.0.y*m.columns.2.z - m.columns.0.z*m.columns.2.y)
+             + m.columns.2.x*(m.columns.0.y*m.columns.1.z - m.columns.0.z*m.columns.1.y)
+    }
+}
+
+
+
+ModelTest.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/ModelTest.swift
+
+// ModelTest.swift – leave in project (no test target membership needed)
+import SwiftUI
+import UIKit
+
+struct ModelTest: View {
+    @StateObject private var viewModel: DetectionViewModel
+
+    init() {
+        _viewModel = StateObject(wrappedValue: DetectionViewModel(predictor: YOLOPredictor.shared))
+    }
+
+    var body: some View {
+        VStack {
+            if let img = UIImage(named: "test_sample") {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .overlay(
+                        BoundingBoxView(
+                            boxes: viewModel.predictions.map { $0.boundingBox },
+                            labels: viewModel.predictions.map {
+                                let pct = Int(($0.confidence as Float) * 100)
+                                return "\($0.label) \(pct)%"
+                            },
+                            color: .red
+                        )
+                    )
+                    .onAppear {
+                        let size = CGSize(width: 640, height: 640)
+                        if let resized = img.resized(to: size),
+                           let pb = resized.toCVPixelBuffer(size: size) {
+                            
+                            print("📸 Test image resized and converted to CVPixelBuffer ✅")
+                            
+                            let results = YOLOPredictor.shared.predictTryingCrops(pixelBuffer: pb, exifOrientation: .up)
+                            
+                            print("🧠 Prediction count: \(results.count)")
+                            for prediction in results {
+                                print("→ Label: \(prediction.label), Confidence: \(prediction.confidence), Box: \(prediction.boundingBox)")
+                            }
+                            
+                            viewModel.update(with: results)
+                        } else {
+                            print("⚠️ Could not create CVPixelBuffer from test image")
+                            viewModel.update(with: [])
+                        }
+                    }
+            } else {
+                Text("❌ test_sample not found")
+            }
+        }
+        .padding()
+    }
+}
+
+
+
+
+PathOverlay.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/PathOverlay.swift
+
+import SwiftUI
+import CoreGraphics
+
+struct PathOverlay: View {
+    let ball: CGPoint
+    let hole: CGPoint
+    let downhillFromBall: CGVector?
+
+    var body: some View {
+        ZStack {
+            Path { p in
+                p.move(to: ball)
+                p.addLine(to: hole)
+            }
+            .stroke(style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round, dash: [10,6]))
+            .foregroundColor(.white)
+            if let v = downhillFromBall {
+                let d = hypot(hole.x - ball.x, hole.y - ball.y)
+                let k = max(40.0, min(0.6 * d, 220.0))
+                let cp = CGPoint(x: ball.x + v.dx * k, y: ball.y + v.dy * k)
+                Path { p in
+                    p.move(to: ball)
+                    p.addQuadCurve(to: hole, control: cp)
+                }
+                .stroke(Color.yellow, lineWidth: 4)
+                .shadow(radius: 2)
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+
+
+PixelBuffer+Resize.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/PixelBuffer+Resize.swift
+
+import CoreVideo
+import CoreImage
+import UIKit
+
+extension CVPixelBuffer {
+    func resized(to size: CGSize) -> CVPixelBuffer? {
+        let ciImage = CIImage(cvPixelBuffer: self)
+        let scaleX = size.width / CGFloat(CVPixelBufferGetWidth(self))
+        let scaleY = size.height / CGFloat(CVPixelBufferGetHeight(self))
+        let transform = CGAffineTransform(scaleX: scaleX, y: scaleY)
+        let resizedImage = ciImage.transformed(by: transform)
+
+        let context = CIContext()
+        var resizedBuffer: CVPixelBuffer?
+
+        let attrs: [CFString: Any] = [
+            kCVPixelBufferCGImageCompatibilityKey: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey: true
+        ]
+
+        CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            Int(size.width),
+            Int(size.height),
+            kCVPixelFormatType_32BGRA,
+            attrs as CFDictionary,
+            &resizedBuffer
+        )
+
+        guard let buffer = resizedBuffer else {
+            print("❌ Failed to create resized pixel buffer")
+            return nil
+        }
+
+        context.render(resizedImage, to: buffer)
+        return buffer
+    }
+}
+
+
+
+
+PredictionResult.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/PredictionResult.swift
+
+import Foundation
+import CoreGraphics
+
+struct Prediction: Equatable {
+    let label: String
+    let confidence: Float
+    let boundingBox: CGRect
+}
+
+
+
+
+Predictor.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/Predictor.swift
+
+import CoreVideo
+
+@preconcurrency
+protocol Predictor {
+    func predict(pixelBuffer: CVPixelBuffer) -> [Prediction]
+}
+
+
+
+Stabilizer.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/Stabilizer.swift
+
+import Foundation
+import CoreGraphics
+
+final class Stabilizer {
+    static let shared = Stabilizer()
+
+    private struct Track {
+        var id = UUID()
+        var label: String
+        var box: CGRect
+        var conf: Float
+        var hits: Int
+        var miss: Int
+    }
+
+    private var tracks: [Track] = []
+    var requiredHits = 2
+    var maxMiss = 2
+    var matchIoU: CGFloat = 0.30
+    var smooth: CGFloat = 0.5
+
+    private init() {}
+
+    func reset() { tracks.removeAll() }
+
+    func update(with detections: [Prediction]) -> [Prediction] {
+        var updated = Array(repeating: false, count: tracks.count)
+        var assigned = Array(repeating: false, count: detections.count)
+
+        // assign by IoU + same label
+        for (di, d) in detections.enumerated() {
+            var best = -1
+            var bestIoU: CGFloat = 0
+            for (ti, t) in tracks.enumerated() where !updated[ti] && t.label == d.label {
+                let i = Heuristics.iou(t.box, d.boundingBox)
+                if i > bestIoU {
+                    bestIoU = i
+                    best = ti
+                }
+            }
+            if best >= 0 && bestIoU >= matchIoU {
+                // smooth box
+                let tb = tracks[best].box
+                let nb = CGRect(
+                    x: tb.origin.x * (1 - smooth) + d.boundingBox.origin.x * smooth,
+                    y: tb.origin.y * (1 - smooth) + d.boundingBox.origin.y * smooth,
+                    width: tb.size.width * (1 - smooth) + d.boundingBox.size.width * smooth,
+                    height: tb.size.height * (1 - smooth) + d.boundingBox.size.height * smooth
+                )
+                tracks[best].box = nb
+                tracks[best].conf = max(tracks[best].conf, d.confidence)
+                tracks[best].hits += 1
+                tracks[best].miss = 0
+                updated[best] = true
+                assigned[di] = true
+            }
+        }
+
+        // new tracks for unassigned detections
+        for (i, d) in detections.enumerated() where !assigned[i] {
+            tracks.append(Track(label: d.label, box: d.boundingBox, conf: d.confidence, hits: 1, miss: 0))
+        }
+
+        // age unmatched tracks
+        for i in tracks.indices where !updated.indices.contains(i) || !updated[i] {
+            tracks[i].miss += 1
+        }
+
+        // drop stale
+        tracks.removeAll { $0.miss > maxMiss }
+
+        // emit only confirmed tracks
+        return tracks
+            .filter { $0.hits >= requiredHits }
+            .map { Prediction(label: $0.label, confidence: $0.conf, boundingBox: $0.box) }
+    }
+}
+
+
+
+UIImageResize.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/UIImageResize.swift
+
+import UIKit
+import CoreVideo
+
+extension UIImage {
+    
+    // Resize UIImage to target size
+    func resized(to targetSize: CGSize) -> UIImage? {
+        UIGraphicsBeginImageContextWithOptions(targetSize, false, 1.0)
+        self.draw(in: CGRect(origin: .zero, size: targetSize))
+        let resizedImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return resizedImage
+    }
+
+    // Convert UIImage to CVPixelBuffer for ML model
+    func toCVPixelBuffer(size: CGSize) -> CVPixelBuffer? {
+        var pixelBuffer: CVPixelBuffer?
+        let attrs: [CFString: Any] = [
+            kCVPixelBufferCGImageCompatibilityKey: true,
+            kCVPixelBufferCGBitmapContextCompatibilityKey: true
+        ]
+
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            Int(size.width),
+            Int(size.height),
+            kCVPixelFormatType_32ARGB,
+            attrs as CFDictionary,
+            &pixelBuffer
+        )
+
+        guard status == kCVReturnSuccess, let buffer = pixelBuffer else {
+            return nil
+        }
+
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+
+        guard let context = CGContext(
+            data: CVPixelBufferGetBaseAddress(buffer),
+            width: Int(size.width),
+            height: Int(size.height),
+            bitsPerComponent: 8,
+            bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
+        ) else {
+            return nil
+        }
+
+        UIGraphicsPushContext(context)
+        self.draw(in: CGRect(origin: .zero, size: size))
+        UIGraphicsPopContext()
+
+        return buffer
+    }
+}
+
+
+
+YOLOPredictor.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/YOLOPredictor.swift
+
+import Foundation
+import Vision
+import CoreML
+import CoreVideo
+import ImageIO
+
+final class YOLOPredictor: Predictor {
+    static let shared = YOLOPredictor()
+
+    private let vnModel: VNCoreMLModel
+    private let confidenceThreshold: VNConfidence = 0.15
+
+    private init() {
+        do {
+            let ml = try GolfHoleDetector(configuration: MLModelConfiguration()).model
+            self.vnModel = try VNCoreMLModel(for: ml)
+        } catch {
+            fatalError("❌ Failed to load GolfHoleDetector.mlpackage: \(error)")
+        }
+    }
+
+    func predict(pixelBuffer: CVPixelBuffer) -> [Prediction] {
+        return predict(pixelBuffer: pixelBuffer, exifOrientation: .up)
+    }
+}
+
+extension YOLOPredictor {
+    func predict(pixelBuffer: CVPixelBuffer,
+                 exifOrientation: CGImagePropertyOrientation) -> [Prediction] {
+        return predict(pixelBuffer: pixelBuffer, exifOrientation: exifOrientation, using: .scaleFit)
+    }
+
+    func predictTryingCrops(pixelBuffer: CVPixelBuffer,
+                            exifOrientation: CGImagePropertyOrientation) -> [Prediction] {
+        let order: [VNImageCropAndScaleOption] = [.scaleFit, .centerCrop, .scaleFill]
+        for crop in order {
+            let res = predict(pixelBuffer: pixelBuffer, exifOrientation: exifOrientation, using: crop)
+            if !res.isEmpty {
+                print("✅ Using crop (hole):", crop.rawValue)
+                return res
+            }
+        }
+        print("❌ No hole detections with any crop mode")
+        return []
+    }
+}
+
+private extension YOLOPredictor {
+    func predict(pixelBuffer: CVPixelBuffer,
+                 exifOrientation: CGImagePropertyOrientation,
+                 using crop: VNImageCropAndScaleOption) -> [Prediction] {
+
+        var out: [Prediction] = []
+
+        let request = VNCoreMLRequest(model: vnModel) { [confidenceThreshold] req, err in
+            if let err = err { print("❌ Vision (hole) error:", err); return }
+            guard let obs = req.results as? [VNRecognizedObjectObservation] else { return }
+
+            for o in obs {
+                let conf = o.labels.first?.confidence ?? o.confidence
+                guard conf >= confidenceThreshold else { continue }
+                out.append(Prediction(label: "hole", confidence: conf, boundingBox: o.boundingBox))
+            }
+        }
+
+        request.imageCropAndScaleOption = crop
+
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer,
+                                            orientation: exifOrientation,
+                                            options: [:])
+        do { try handler.perform([request]) }
+        catch { print("❌ Vision perform (hole) error:", error) }
+
+        return out
+    }
+}
+
+
+
+deviceSupportsLiDAR.swift
+FILE: /Users/martingymer/Developer/GolfAIAppClean/deviceSupportsLiDAR.swift
+
+import ARKit
+
+func deviceSupportsLiDAR() -> Bool {
+    // Check if the device has a LiDAR sensor
+    return ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth)
+}
+
+

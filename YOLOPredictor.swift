@@ -2,14 +2,13 @@ import Foundation
 import Vision
 import CoreML
 import CoreVideo
-import ImageIO   // CGImagePropertyOrientation
+import ImageIO
 
-// MARK: - Predictor implementation
 final class YOLOPredictor: Predictor {
     static let shared = YOLOPredictor()
 
     private let vnModel: VNCoreMLModel
-    private let confidenceThreshold: VNConfidence = 0.05
+    private let confidenceThreshold: VNConfidence = 0.15
 
     private init() {
         do {
@@ -25,13 +24,10 @@ final class YOLOPredictor: Predictor {
     }
 }
 
-// MARK: - Public helpers
 extension YOLOPredictor {
     func predict(pixelBuffer: CVPixelBuffer,
                  exifOrientation: CGImagePropertyOrientation) -> [Prediction] {
-        return predict(pixelBuffer: pixelBuffer,
-                       exifOrientation: exifOrientation,
-                       using: .scaleFit)
+        return predict(pixelBuffer: pixelBuffer, exifOrientation: exifOrientation, using: .scaleFit)
     }
 
     func predictTryingCrops(pixelBuffer: CVPixelBuffer,
@@ -49,7 +45,6 @@ extension YOLOPredictor {
     }
 }
 
-// MARK: - Core Vision invocation (with crop mode)
 private extension YOLOPredictor {
     func predict(pixelBuffer: CVPixelBuffer,
                  exifOrientation: CGImagePropertyOrientation,
@@ -58,28 +53,13 @@ private extension YOLOPredictor {
         var out: [Prediction] = []
 
         let request = VNCoreMLRequest(model: vnModel) { [confidenceThreshold] req, err in
-            if let err = err {
-                print("❌ Vision (hole) error:", err)
-                return
-            }
-
+            if let err = err { print("❌ Vision (hole) error:", err); return }
             guard let obs = req.results as? [VNRecognizedObjectObservation] else { return }
-
-            // Optional debug
-            print("🔎 (hole) obsCount:", obs.count)
-            for o in obs.prefix(3) {
-                let tops = o.labels.prefix(3).map { "\($0.identifier)=\($0.confidence)" }
-                print("  ↳", tops.joined(separator: ", "), "box:", o.boundingBox)
-            }
 
             for o in obs {
                 let conf = o.labels.first?.confidence ?? o.confidence
                 guard conf >= confidenceThreshold else { continue }
-
-                // 🔹 Force a stable label for holes
-                out.append(Prediction(label: "hole",
-                                      confidence: conf,
-                                      boundingBox: o.boundingBox))
+                out.append(Prediction(label: "hole", confidence: conf, boundingBox: o.boundingBox))
             }
         }
 
