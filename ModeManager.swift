@@ -2,8 +2,8 @@ import Combine
 
 enum DetectionMode: String, CaseIterable, Identifiable {
     case ml = "ML"
-    case deterministic = "Deterministic"
-    var id: String { rawValue }
+    case deterministic = "Det"
+    var id: Self { self }   // lets ForEach work without “id: \.self”
 }
 
 final class ModeManager: ObservableObject {

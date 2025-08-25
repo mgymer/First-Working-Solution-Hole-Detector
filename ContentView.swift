@@ -10,7 +10,7 @@ struct ContentView: View {
     @StateObject var cameraService = CameraService()
     @StateObject var lidar = LiDARService.shared
     @StateObject var modeManager = ModeManager.shared
-
+    
     @State private var holeScreen: CGPoint?
     @State private var ballScreen: CGPoint?
     @State private var downhillVecFromBall: CGVector?
@@ -89,6 +89,31 @@ struct ContentView: View {
             .padding(.leading, 8),
             alignment: .topLeading
         )
+        
+        .overlay(
+            
+            HStack(spacing: 8) {
+                ForEach(DetectionMode.allCases) { m in
+                    Button(m.rawValue) { modeManager.mode = m }
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(modeManager.mode == m ? Color.black.opacity(0.75)
+                                                          : Color.black.opacity(0.35))
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+                Text(LIDAR_ENABLED ? "Frames: ARKit" : "Frames: Camera")
+                    .font(.caption2)
+                    .padding(.horizontal, 8).padding(.vertical, 4)
+                    .background(Color.black.opacity(0.35))
+                    .foregroundColor(.white)
+                    .cornerRadius(8)
+                Spacer()
+            }
+
+            .padding(.top, 8).padding(.leading, 8),
+            alignment: .topLeading
+        )
+
 
         // Lifecycle
         .onAppear {
