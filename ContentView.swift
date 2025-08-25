@@ -1,56 +1,44 @@
 import SwiftUI
 import Combine
 import ImageIO
-import ARKit      // <-- add this
-
+import ARKit
 
 private let LIDAR_ENABLED = true   // true = ARKit owns camera; false = AVFoundation pipeline
 
 struct ContentView: View {
     @StateObject var viewModel = DetectionViewModel(predictor: CombinedPredictor.shared)
-    @StateObject var cameraService = CameraService()           // used only when LIDAR_ENABLED == false
-    @StateObject var lidar = LiDARService.shared               // used only when LIDAR_ENABLED == true
+    @StateObject var cameraService = CameraService()
+    @StateObject var lidar = LiDARService.shared
+    @StateObject var modeManager = ModeManager.shared
 
     @State private var holeScreen: CGPoint?
     @State private var ballScreen: CGPoint?
     @State private var downhillVecFromBall: CGVector?
 
-    // simple throttle for AR-frame inference
     @State private var lastInferenceTime: Date = .distantPast
     private let frameGap: TimeInterval = 0.20
 
     var body: some View {
         ZStack {
             Group {
-                if LIDAR_ENABLED {
-                    ARPreview(session: lidar.session)
-                } else {
-                    CameraPreview(session: cameraService.getSession())
-                }
+                if LIDAR_ENABLED { ARPreview(session: lidar.session) }
+                else { CameraPreview(session: cameraService.getSession()) }
             }
             .ignoresSafeArea()
 
             // HOLES (blue)
             BoundingBoxView(
-                boxes:  viewModel.predictions
-                    .filter { $0.label == "hole" }
-                    .map { $0.boundingBox },
-                labels: viewModel.predictions
-                    .filter { $0.label == "hole" }
-                    .map { "hole \(Int($0.confidence * 100))%" },
+                boxes:  viewModel.predictions.filter { $0.label == "hole" }.map { $0.boundingBox },
+                labels: viewModel.predictions.filter { $0.label == "hole" }.map { "hole \(Int($0.confidence * 100))%" },
                 color: .blue
             )
             .ignoresSafeArea()
             .zIndex(0)
 
-            // BALLS (green) on top
+            // BALLS (green)
             BoundingBoxView(
-                boxes:  viewModel.predictions
-                    .filter { $0.label == "ball" }
-                    .map { $0.boundingBox },
-                labels: viewModel.predictions
-                    .filter { $0.label == "ball" }
-                    .map { "ball \(Int($0.confidence * 100))%" },
+                boxes:  viewModel.predictions.filter { $0.label == "ball" }.map { $0.boundingBox },
+                labels: viewModel.predictions.filter { $0.label == "ball" }.map { "ball \(Int($0.confidence * 100))%" },
                 color: .green
             )
             .ignoresSafeArea()
@@ -58,8 +46,7 @@ struct ContentView: View {
 
             // Lines
             if let b = ballScreen, let h = holeScreen {
-                PathOverlay(ball: b, hole: h, downhillFromBall: downhillVecFromBall)
-                    .zIndex(2)
+                PathOverlay(ball: b, hole: h, downhillFromBall: downhillVecFromBall).zIndex(2)
             }
 
             // HUD
@@ -74,51 +61,48 @@ struct ContentView: View {
                     .padding(.bottom, 20)
             }
         }
-        // Quick test button
+        // Mode toggle + Test box
         .overlay(
-            VStack {
-                HStack {
-                    Button("▶️ Test Box") {
-                        let fake = Prediction(
-                            label: "test",
-                            confidence: 0.9,
-                            boundingBox: CGRect(x: 0.45, y: 0.45, width: 0.10, height: 0.10)
-                        )
-                        viewModel.update(with: [fake])
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    ForEach(DetectionMode.allCases) { m in
+                        Button(m.rawValue) { modeManager.mode = m }
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(modeManager.mode == m ? Color.black.opacity(0.75) : Color.black.opacity(0.35))
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
                     }
-                    .padding(8)
-                    .background(Color.black.opacity(0.6))
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
                     Spacer()
                 }
-                Spacer()
+
+                Button("▶️ Test Box") {
+                    let fake = Prediction(label: "test", confidence: 0.9,
+                                          boundingBox: CGRect(x: 0.45, y: 0.45, width: 0.10, height: 0.10))
+                    viewModel.update(with: [fake])
+                }
+                .padding(8)
+                .background(Color.black.opacity(0.6))
+                .foregroundColor(.white)
+                .cornerRadius(8)
             }
-            .padding(),
+            .padding(.top, 8)
+            .padding(.leading, 8),
             alignment: .topLeading
         )
 
         // Lifecycle
         .onAppear {
-            if LIDAR_ENABLED {
-                lidar.start()                         // ARKit owns camera
-            } else {
-                cameraService.start(viewModel: viewModel) // AVFoundation path (no LiDAR)
-            }
+            if LIDAR_ENABLED { lidar.start() }
+            else { cameraService.start(viewModel: viewModel) }
         }
         .onDisappear {
-            if LIDAR_ENABLED {
-                lidar.stop()
-            } else {
-                cameraService.stop()
-            }
+            if LIDAR_ENABLED { lidar.stop() }
+            else { cameraService.stop() }
         }
 
-        // Run ML from AR frames (only when LiDAR/ARKit path is active)
+        // AR path: run inference from AR frames (when LiDAR path active)
         .onReceive(lidar.$latestFrame.compactMap { $0 }) { frame in
             guard LIDAR_ENABLED else { return }
-
-            // throttle
             let now = Date()
             guard now.timeIntervalSince(lastInferenceTime) >= frameGap else { return }
             lastInferenceTime = now
@@ -127,38 +111,32 @@ struct ContentView: View {
             let exif: CGImagePropertyOrientation = .right // portrait
 
             DispatchQueue.global(qos: .userInitiated).async {
-                let raw     = CombinedPredictor.shared.predictTryingCrops(pixelBuffer: pb, exifOrientation: exif)
+                let raw: [Prediction]
+                switch ModeManager.shared.mode {
+                case .ml:
+                    raw = CombinedPredictor.shared.predictTryingCrops(pixelBuffer: pb, exifOrientation: exif)
+                case .deterministic:
+                    raw = DeterministicDetector.shared.predict(pixelBuffer: pb, exifOrientation: exif)
+                }
                 let refined = Heuristics.refine(predictions: raw)
                 let stable  = Stabilizer.shared.update(with: refined)
-
-                DispatchQueue.main.async {
-                    viewModel.update(with: stable)
-                }
+                DispatchQueue.main.async { viewModel.update(with: stable) }
             }
         }
 
         // Recompute lines when detections change
-        .onReceive(viewModel.$predictions) { _ in
-            updatePathInputs()
-        }
+        .onReceive(viewModel.$predictions) { _ in updatePathInputs() }
     }
 
     // MARK: - Helpers
-
     private func updatePathInputs() {
         let size = UIScreen.main.bounds.size
-
         func screenPoint(from box: CGRect) -> CGPoint {
             CGPoint(x: box.midX * size.width, y: (1 - box.midY) * size.height)
         }
 
-        let bestHole = viewModel.predictions
-            .filter { $0.label == "hole" }
-            .max(by: { $0.confidence < $1.confidence })
-
-        let bestBall = viewModel.predictions
-            .filter { $0.label == "ball" }
-            .max(by: { $0.confidence < $1.confidence })
+        let bestHole = viewModel.predictions.filter { $0.label == "hole" }.max(by: { $0.confidence < $1.confidence })
+        let bestBall = viewModel.predictions.filter { $0.label == "ball" }.max(by: { $0.confidence < $1.confidence })
 
         holeScreen = bestHole.map { screenPoint(from: $0.boundingBox) }
         ballScreen = bestBall.map { screenPoint(from: $0.boundingBox) }

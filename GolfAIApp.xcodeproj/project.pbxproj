@@ -25,6 +25,9 @@
 		D2B42E222E58A3C8006C9D0C /* LiDARService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B42E212E58A3C8006C9D0C /* LiDARService.swift */; };
 		D2B42E242E58A3F4006C9D0C /* PathOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B42E232E58A3F4006C9D0C /* PathOverlay.swift */; };
 		D2B42E2A2E58B0A9006C9D0C /* ARPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B42E292E58B0A9006C9D0C /* ARPreview.swift */; };
+		D2B42E342E5C4FD0006C9D0C /* ModeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B42E332E5C4FD0006C9D0C /* ModeManager.swift */; };
+		D2B42E362E5C500B006C9D0C /* DeterministicDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B42E352E5C500B006C9D0C /* DeterministicDetector.swift */; };
+		D2B42E382E5C5047006C9D0C /* DepthSizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B42E372E5C5047006C9D0C /* DepthSizer.swift */; };
 		D2B477E72E536FA4001E7223 /* ModelTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2FA2DE72E3F4F5F00BB1224 /* ModelTest.swift */; };
 		D2B477E92E537151001E7223 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D2B477E82E537151001E7223 /* Assets.xcassets */; };
 		D2B477ED2E537514001E7223 /* Predictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2B477EC2E537514001E7223 /* Predictor.swift */; };
@@ -67,6 +70,9 @@
 		D2B42E212E58A3C8006C9D0C /* LiDARService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiDARService.swift; sourceTree = "<group>"; };
 		D2B42E232E58A3F4006C9D0C /* PathOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathOverlay.swift; sourceTree = "<group>"; };
 		D2B42E292E58B0A9006C9D0C /* ARPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARPreview.swift; sourceTree = "<group>"; };
+		D2B42E332E5C4FD0006C9D0C /* ModeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModeManager.swift; sourceTree = "<group>"; };
+		D2B42E352E5C500B006C9D0C /* DeterministicDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicDetector.swift; sourceTree = "<group>"; };
+		D2B42E372E5C5047006C9D0C /* DepthSizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthSizer.swift; sourceTree = "<group>"; };
 		D2B477E82E537151001E7223 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D2B477EA2E5374DA001E7223 /* GolfAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GolfAIApp.swift; sourceTree = "<group>"; };
 		D2B477EC2E537514001E7223 /* Predictor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Predictor.swift; sourceTree = "<group>"; };
@@ -123,6 +129,9 @@
 		D2FA2D1C2E3DEC0300BB1224 = {
 			isa = PBXGroup;
 			children = (
+				D2B42E372E5C5047006C9D0C /* DepthSizer.swift */,
+				D2B42E352E5C500B006C9D0C /* DeterministicDetector.swift */,
+				D2B42E332E5C4FD0006C9D0C /* ModeManager.swift */,
 				D2B42E292E58B0A9006C9D0C /* ARPreview.swift */,
 				D2B42E232E58A3F4006C9D0C /* PathOverlay.swift */,
 				D2B42E1F2E58A0C9006C9D0C /* Stabilizer.swift */,
@@ -307,11 +316,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				D21EBD0D2E4F2685004086A3 /* DetectionViewModel.swift in Sources */,
+				D2B42E382E5C5047006C9D0C /* DepthSizer.swift in Sources */,
 				D21EBD0C2E4F264E004086A3 /* GolfAIApp.swift in Sources */,
 				D21EBD312E4F6ED7004086A3 /* PixelBuffer+Resize.swift in Sources */,
 				D2B42E242E58A3F4006C9D0C /* PathOverlay.swift in Sources */,
 				D2B42DE92E586046006C9D0C /* BallDetectorBEST.mlpackage in Sources */,
 				D21EBD0F2E4F26A1004086A3 /* BoundingBoxView.swift in Sources */,
+				D2B42E362E5C500B006C9D0C /* DeterministicDetector.swift in Sources */,
 				D21EBD122E4F2CD5004086A3 /* UIImageResize.swift in Sources */,
 				D2B42E202E58A0C9006C9D0C /* Stabilizer.swift in Sources */,
 				D21EBD112E4F2AAB004086A3 /* Array+Safe.swift in Sources */,
@@ -328,6 +339,7 @@
 				D2FA2DEE2E3F4F5F00BB1224 /* PredictionResult.swift in Sources */,
 				D2FA2DE32E3F4F4400BB1224 /* CameraService.swift in Sources */,
 				D2B477ED2E537514001E7223 /* Predictor.swift in Sources */,
+				D2B42E342E5C4FD0006C9D0C /* ModeManager.swift in Sources */,
 				D2B477EE2E5376A8001E7223 /* LaunchScreenView.swift in Sources */,
 				D2B42E1A2E586666006C9D0C /* CombinedPredictor.swift in Sources */,
 			);

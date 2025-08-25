@@ -80,11 +80,18 @@ final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputS
             exif = exifFromVideoOrientation(connection.videoOrientation, cameraPosition: .back)
         }
 
-        let raw = CombinedPredictor.shared.predictTryingCrops(pixelBuffer: pixelBuffer, exifOrientation: exif)
+        // Run the selected detector
+        let raw: [Prediction]
+        switch ModeManager.shared.mode {
+        case .ml:
+            raw = CombinedPredictor.shared.predictTryingCrops(pixelBuffer: pixelBuffer, exifOrientation: exif)
+        case .deterministic:
+            raw = DeterministicDetector.shared.predict(pixelBuffer: pixelBuffer, exifOrientation: exif)
+        }
 
+        // Optional refinement/stabilization (your existing toggles)
         let refined = USE_HEURISTICS ? Heuristics.refine(predictions: raw) : raw
         let stable  = USE_STABILIZER ? Stabilizer.shared.update(with: refined) : refined
-
 
         if !raw.isEmpty {
             let cRaw = Dictionary(grouping: raw, by: { $0.label }).mapValues { $0.count }
@@ -96,6 +103,7 @@ final class CameraService: NSObject, ObservableObject, AVCaptureVideoDataOutputS
         DispatchQueue.main.async { [weak self] in
             self?.viewModel?.update(with: stable)
         }
+
     }
 }
 
